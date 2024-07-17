@@ -1,0 +1,1114 @@
+#import the dataset
+library(rgl)
+options(rgl.useNULL = TRUE)
+library(ISLR2)
+library(tibble)
+library(ggplot2)
+library(survival)
+library(tidyverse)
+library(survminer)
+library(ggpubr)
+library(ggsurvfit)
+library(RColorBrewer)
+library(ISLR2)
+data("BrainCancer")
+install.packages("gt")
+install.packages("tibble")
+library(gt)
+
+# Create the dataset
+BrainCancer_df <- BrainCancer  (CONTROL THE NAME OF THE DATASET)
+
+# View the first few rows of the created dataframe
+head(BrainCancer_df)
+
+#Table graphic
+
+brain_tibble<-as_tibble(BrainCancer)
+gt_tbl <- 
+  gt(brain_tibble[1:8,]) |>
+  tab_header(
+    title = "Primary Brain Tumor Patients",
+  ) |>
+  tab_source_note(
+    source_note = "Source: I. Selingerova, H. Dolezelova, I. Horova, S. Katina, and J. Zelinka. Survival of patients with primary brain tumors: Comparison of two statistical approaches. PLoS One, 11(2):e0148733, 2016. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4749663/"
+  ) |>
+  tab_source_note(
+    source_note = md("Reference: James, G., Witten, D., Hastie, T., and Tibshirani, R. (2021) An Introduction to Statistical Learning with applications in R, Second Edition, https://www.statlearning.com, Springer-Verlag, New York")
+  )
+gt_tbl
+
+
+#Descriptive Statistics - Data Distributions
+#sex distribution
+
+#The code it's creating a matrix num.sexes containing the counts of male and female patients 
+#from the dataframe. 
+
+num.sexes <- matrix(c(nrow(brain_tibble[brain_tibble$sex=='Male',]), nrow(brain_tibble[brain_tibble$sex=='Female',])),ncol=2,nrow=1,byrow = T)
+
+#"by rows" means that the data is filled by rows, i.e., each sequence of data provided 
+#is filled row-wise before moving to the next row.
+
+row.names(num.sexes) <- c("Amount of Patients")
+colnames(num.sexes) <- c("Male", "Female")
+num.sexes
+
+num.sexes <- data.frame(
+  sex=colnames(num.sexes),  
+  patients=c(num.sexes[1], num.sexes[2])
+  )
+
+ggplot(num.sexes, aes(x=sex, y=patients)) + 
+  geom_bar(stat = "identity")
+
+Almost the same, no signif difference
+
+
+#diagnosis distribution
+brain_tibble<- na.omit(brain_tibble)
+num.dias <- matrix(c(nrow(brain_tibble[brain_tibble$diagnosis=='Meningioma',]), nrow(brain_tibble[brain_tibble$diagnosis=='HG glioma',]), nrow(brain_tibble[brain_tibble$diagnosis=='LG glioma',]), nrow(brain_tibble[brain_tibble$diagnosis=='Other',])),ncol=4,nrow=1,byrow = T)
+
+row.names(num.dias) <- c("Amount of Patients")
+colnames(num.dias) <- c("Meningioma", "HG Glioma", "LG Glioma", "Other")
+num.dias
+
+num.dias <- data.frame(
+  diagnosis=colnames(num.dias),  
+  patients=c(num.dias[1], num.dias[2], num.dias[3], num.dias[4])
+  )
+
+ggplot(num.dias, aes(x=diagnosis, y=patients)) + 
+  geom_bar(stat = "identity")
+
+#pie chart
+num.dias$fraction = num.dias$patients / sum(num.dias$patients)
+
+# Compute the cumulative percentages (top of each rectangle)
+num.dias$ymax = cumsum(num.dias$fraction)
+
+# Compute the bottom of each rectangle
+num.dias$ymin = c(0, head(num.dias$ymax, n=-1))
+ 
+# Compute label position
+num.dias$labelPosition <- (num.dias$ymax + num.dias$ymin) / 2
+
+# Compute a good label
+num.dias$label <- paste0(num.dias$diagnosis, "\n Patients: ", num.dias$patients)
+
+# Make the plot
+ggplot(num.dias, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=diagnosis)) +
+  geom_rect() +
+  geom_label( x=3.5, aes(y=labelPosition, label=label), size=4) +
+  scale_fill_manual(values=c("#6CE5E8", "#41B8D5", "#2D8BBA", "#2F5F98")) +
+  coord_polar(theta="y") +
+  xlim(c(2, 4)) +
+  ggtitle("Amount of Patients with Each Diagnosis")+
+  theme_void() +
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5, size=18), 
+        plot.background = element_rect(fill = "#F2F4F5"))
+
+
+
+#loc distribution
+num.locs <- matrix(c(nrow(brain_tibble[brain_tibble$loc=='Supratentorial',]), nrow(brain_tibble[brain_tibble$loc=='Infratentorial',])),ncol=2,nrow=1,byrow = T)
+
+row.names(num.locs) <- c("Amount of Patients")
+colnames(num.locs) <- c("Supratentorial", "Infratentorial")
+num.locs
+
+num.locs <- data.frame(
+  loc=colnames(num.locs),  
+  patients=c(num.locs[1], num.locs[2])
+  )
+
+ggplot(num.locs, aes(x=loc, y=patients)) + 
+  geom_bar(stat = "identity")
+
+Supratentorial more present.
+
+
+
+#ki distribution
+
+hist(BrainCancer_df$ki, main = "Histogram of Column", xlab = "Values")
+plot(density(BrainCancer_df$ki), main = "Histogram of Column", xlab = "Values")
+boxplot(BrainCancer_df$ki, main = "Histogram of Column", xlab = "Values")
+ggplot(BrainCancer_df, aes(x = ki)) +
+  geom_histogram(binwidth = 10, fill = "skyblue", color = "black") +
+  labs(title = "Histogram of Column", x = "Values", y = "Frequency")
+
+num.kis <- matrix(c(nrow(brain_tibble[brain_tibble$ki==40,]),
+                    nrow(brain_tibble[brain_tibble$ki==50,]),
+                    nrow(brain_tibble[brain_tibble$ki==60,]),
+                    nrow(brain_tibble[brain_tibble$ki==70,]),
+                    nrow(brain_tibble[brain_tibble$ki==80,]),
+                    nrow(brain_tibble[brain_tibble$ki==90,]),
+                    nrow(brain_tibble[brain_tibble$ki==100,])),ncol=7,nrow=1,byrow = T)
+
+row.names(num.kis) <- c("Amount of Patients")
+colnames(num.kis) <- c("KI=40", "KI=50", "KI=60", "KI=70", "KI=80", "KI=90", "KI=100")
+num.kis
+
+num.kis <- data.frame(
+  ki=colnames(num.kis),  
+  patients=c(num.kis[1], num.kis[2], num.kis[3], num.kis[4], num.kis[5], num.kis[6], num.kis[7])
+  )
+
+ggplot(num.kis, aes(x=ki, y=patients)) + 
+  geom_bar(stat = "identity") #TODO: REORDER
+
+ggplot(brain_tibble, aes(x=ki)) + 
+  geom_histogram(binwidth = 10, fill="#41B8D5") +
+  ylab("Frequency")+
+  xlab("Karnofsky Index")+
+  ggtitle("Karnofsky Index Values")+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        axis.title.x = element_text(size = 13),
+        axis.title.y = element_text(size = 13),
+        axis.text = element_text(size = 12)) 
+
+shapiro_test <- shapiro.test(BrainCancer_df$ki)
+print(shapiro_test) # -->not normal
+
+
+
+
+
+#gtv distribution
+plot(brain_tibble$gtv)
+
+ggplot(brain_tibble, aes(x=gtv)) + 
+  geom_histogram(binwidth = 5, fill="#41B8D5") +
+  ylab("Frequency")+
+  xlab("Gross Tumor Volume (cm^3)")+
+  ggtitle("Gross Tumor Volume Values")+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        axis.title.x = element_text(size = 13),
+        axis.title.y = element_text(size = 13),
+        axis.text = element_text(size = 12))
+
+#no normal distribution 
+shapiro_test <- shapiro.test(BrainCancer_df$gtv)
+print(shapiro_test)
+
+
+
+
+
+#stereo distribution
+num.stereos <- matrix(c(nrow(brain_tibble[brain_tibble$stereo=='SRS',]), nrow(brain_tibble[brain_tibble$stereo=='SRT',])),ncol=2,nrow=1,byrow = T)
+
+row.names(num.stereos) <- c("Amount of Patients")
+colnames(num.stereos) <- c("SRS", "SRT")
+num.stereos
+
+num.stereos <- data.frame(
+  stereo=colnames(num.stereos),  
+  patients=c(num.stereos[1], num.stereos[2])
+  )
+
+ggplot(num.stereos, aes(x=stereo, y=patients, fill=stereo)) + 
+  geom_bar(stat = "identity")+
+  scale_fill_manual(values=c("#6CE5E8", "#2D8BBA"))+
+  labs(fill = "Stereotactic Method")+
+  ylab("Patients")+
+  xlab("Stereotactic Method")+
+  ggtitle("Amount of Patients with Each Stereotactic Method")+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        axis.title.x = element_text(size = 13),
+        axis.title.y = element_text(size = 13),
+        legend.text = element_text(size = 13),
+        axis.text = element_text(size = 12))
+
+SRT higher
+
+
+
+
+#status distribtion
+barplot(table(BrainCancer_df$status), 
+        main = "Histogram of Status", 
+        xlab = "Values",
+        ylab = "Frequency",
+        col = c("#41B8D5", "#2D8BBA"))
+
+# Creazione del grafico a barre con ggplot2
+count_df <- as.data.frame(table(BrainCancer_df$status))
+colnames(count_df) <- c("Status", "Frequency")
+ggplot(count_df, aes(x = Status, y = Frequency, fill = Status)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Histogram of Status", x = "Values", y = "Frequency") +
+  scale_fill_manual(values = c("#41B8D5", "#2D8BBA")) +  # Specifica dei colori
+  theme_minimal()
+
+
+
+
+
+#Group Comparisons (non-parametric methods)
+
+##Is there an association between Diagnosis and GTV? (NOT SIGNIFICANT)
+#mann whitney U test cannot be performed here because we have more than two groups, so instead we perform the Kruskal Wallis test 
+Il test di Kruskal-Wallis è un test non parametrico utilizzato per confrontare le mediane di tre o più gruppi indipendenti quando la variabile dipendente è continua e i gruppi sono definiti da una variabile categorica.
+Nel tuo caso, hai una variabile continua (il volume del tumore, GTV) e una variabile categorica (la diagnosi che indica il tipo di tumore). Vuoi determinare se ci sono differenze significative nei volumi dei tumori tra i diversi tipi di tumore, quindi il test di Kruskal-Wallis è appropriato.
+library(stats)
+kruskal.test(BrainCancer_df$gtv ~ BrainCancer_df$diagnosis, data = BrainCancer_df)
+p-value = 0.8914
+ggboxplot(brain_tibble, x = "diagnosis", y = "gtv", 
+          color = "diagnosis",
+          order = c("Meningioma", "HG glioma", "LG glioma", "Other"),
+          ylab = "GTV", xlab = "Diagnosis")
+kruskal.test(gtv ~ diagnosis, data = brain_tibble)
+
+
+
+##Is there an association between Diagnosis and KI? (NOT SIGNIFICANT)
+#mann whitney U test cannot be performed here because we have more than two groups, so instead we perform the Kruskal Wallis test 
+kruskal.test(BrainCancer_df$ki ~ BrainCancer_df$diagnosis, data = BrainCancer_df)
+ggboxplot(brain_tibble, x = "diagnosis", y = "ki", 
+          color = "diagnosis",
+          order = c("Meningioma", "HG glioma", "LG glioma", "Other"),
+          ylab = "KI", xlab = "Diagnosis")
+kruskal.test(ki ~ diagnosis, data = brain_tibble)
+
+
+
+##Is there an association between Diagnosis and Loc? (SIGNIFICANT)
+
+
+#set up contingency table
+num.s.meningioma <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$diagnosis=="Meningioma",])
+num.i.meningioma <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$diagnosis=="Meningioma",])
+num.s.hgglioma <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$diagnosis=="HG glioma",])
+num.i.hgglioma <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$diagnosis=="HG glioma",])
+num.s.lgglioma <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$diagnosis=="LG glioma",])
+num.i.lgglioma <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$diagnosis=="LG glioma",])
+num.s.other <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$diagnosis=="Other",])
+num.i.other <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$diagnosis=="Other",])
+
+dia.loc.contigencytbl <- matrix(c(num.s.meningioma, num.i.meningioma,
+                                num.s.hgglioma, num.i.hgglioma,
+                                num.s.lgglioma, num.i.lgglioma,
+                                num.s.other, num.i.other),ncol=2,nrow=4,byrow = T)
+
+row.names(dia.loc.contigencytbl) <- c("Meningioma","HG glioma","LG glioma", "Other")
+colnames(dia.loc.contigencytbl) <- c("Supratentorial", "Infratentorial")
+dia.loc.contigencytbl
+#perform chi squared test, but it is not valid because less than 80% of expected frequencies are more than 5
+chi_test <- chisq.test(dia.loc.contigencytbl, correct = F)
+chi_test
+chi_test$observed
+chi_test$expected
+#perform fisher exact test
+fisher <- fisher.test(dia.loc.contigencytbl)
+fisher
+#p val is less than 0.05, so we can conclude that there is a significant association
+
+#bar plot
+dia.loc.obs.df <- data.frame(
+  diagnosis=c(rep(c("Meningioma","HG glioma", "LG glioma","Other"), 4)),
+  patients=c(35,22,9,6,8,1,1,9,34.02, 18.19, 7.91, 11.87, 8.98, 4.80, 2.09, 3.13),
+  loc=c(rep("Supratentorial", 4), rep("Infratentorial", 4), rep("Supratentorial",4), rep("Infratentorial", 4)),
+  type=c(rep("Observed", 8), rep("Expected", 8))
+)
+ggplot(dia.loc.obs.df) +
+  geom_bar(aes(x = type, y = patients, fill = loc),
+           position = "stack",
+           stat = "identity") +
+  facet_grid(~ diagnosis, switch = "x") +
+  ggtitle("Comparison of Observed and Expected Values for Each Diagnosis") +
+  xlab("Diagnosis") +
+  ylab("Patients") +
+  labs(fill="Tumor Location") +
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(strip.placement = "outside",
+        strip.background = element_rect(fill = NA, color = "white"),
+        panel.spacing = unit(-.01,"cm"),
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+
+##Is there an association between Diagnosis and Sex? ( NOT SIGNIFICANT)
+#set up contingency table
+num.m.meningioma <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$diagnosis=="Meningioma",])
+num.f.meningioma <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$diagnosis=="Meningioma",])
+num.m.hgglioma <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$diagnosis=="HG glioma",])
+num.f.hgglioma <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$diagnosis=="HG glioma",])
+num.m.lgglioma <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$diagnosis=="LG glioma",])
+num.f.lgglioma <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$diagnosis=="LG glioma",])
+num.m.other <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$diagnosis=="Other",])
+num.f.other <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$diagnosis=="Other",])
+
+dia.sex.contigencytbl <- matrix(c(num.m.meningioma, num.f.meningioma,
+                                num.m.hgglioma, num.f.hgglioma,
+                                num.m.lgglioma, num.f.lgglioma,
+                                num.m.other, num.f.other),ncol=2,nrow=4,byrow = T)
+
+row.names(dia.sex.contigencytbl) <- c("Meningioma","HG glioma","LG glioma", "Other")
+colnames(dia.sex.contigencytbl) <- c("Male", "Female")
+dia.sex.contigencytbl
+
+#perform chi squared test, but it is not valid because less than 80% of expected frequencies are more than 5
+chi_test <- chisq.test(dia.sex.contigencytbl, correct = F)
+chi_test
+chi_test$observed
+chi_test$expected
+#perform fisher exact test
+fisher <- fisher.test(dia.sex.contigencytbl)
+fisher
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+
+
+
+
+
+
+##Is there an association between Diagnosis and Stereo? (NOT SIGNIFICANT)
+#set up contingency table
+num.s.meningioma <- nrow(brain_tibble[brain_tibble$stereo=="SRS" & brain_tibble$diagnosis=="Meningioma",])
+num.t.meningioma <- nrow(brain_tibble[brain_tibble$stereo=="SRT" & brain_tibble$diagnosis=="Meningioma",])
+num.s.hgglioma <- nrow(brain_tibble[brain_tibble$stereo=="SRS" & brain_tibble$diagnosis=="HG glioma",])
+num.t.hgglioma <- nrow(brain_tibble[brain_tibble$stereo=="SRT" & brain_tibble$diagnosis=="HG glioma",])
+num.s.lgglioma <- nrow(brain_tibble[brain_tibble$stereo=="SRS" & brain_tibble$diagnosis=="LG glioma",])
+num.t.lgglioma <- nrow(brain_tibble[brain_tibble$stereo=="SRT" & brain_tibble$diagnosis=="LG glioma",])
+num.s.other <- nrow(brain_tibble[brain_tibble$stereo=="SRS" & brain_tibble$diagnosis=="Other",])
+num.t.other <- nrow(brain_tibble[brain_tibble$stereo=="SRT" & brain_tibble$diagnosis=="Other",])
+
+dia.stereo.contigencytbl <- matrix(c(num.s.meningioma, num.t.meningioma,
+                                num.s.hgglioma, num.t.hgglioma,
+                                num.s.lgglioma, num.t.lgglioma,
+                                num.s.other, num.t.other),ncol=2,nrow=4,byrow = T)
+
+row.names(dia.stereo.contigencytbl) <- c("Meningioma","HG glioma","LG glioma", "Other")
+colnames(dia.stereo.contigencytbl) <- c("SRS", "SRT")
+dia.stereo.contigencytbl
+
+#perform chi squared test, but it is not valid because less than 80% of expected frequencies are more than 5
+chi_test <- chisq.test(dia.stereo.contigencytbl, correct = F)
+chi_test
+chi_test$observed
+chi_test$expected
+#perform fisher exact test
+fisher <- fisher.test(dia.stereo.contigencytbl)
+fisher
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Sex and Loc? (NOT SIGNIFICANT)
+num.m.supra <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$loc=="Supratentorial",])
+num.f.supra <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$loc=="Supratentorial",])
+num.m.infra <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$loc=="Infratentorial",])
+num.f.infra <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$loc=="Infratentorial",])
+
+sex.loc.contigencytbl <- matrix(c(num.m.supra, num.f.supra,
+                                num.m.infra, num.f.infra),ncol=2,nrow=2,byrow = T)
+
+row.names(sex.loc.contigencytbl) <- c("Supratentorial","Infratentorial")
+colnames(sex.loc.contigencytbl) <- c("Male", "Female")
+sex.loc.contigencytbl
+
+#perform chi squared test, with Yates continuity correction
+chi_test <- chisq.test(sex.loc.contigencytbl, correct = T)
+chi_test
+chi_test$observed
+chi_test$expected
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Sex and KI? (NOT SIGNIFICANT)
+#mann whitney U test
+m.ki.vals <- brain_tibble$ki[brain_tibble$sex=="Male"]
+f.ki.vals <- brain_tibble$ki[brain_tibble$sex=="Female"]
+
+hist(m.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Males', xlim=c(0,100), ylim=c(0,0.1), breaks=5)
+hist(f.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Females', xlim=c(0,100), ylim=c(0,0.1))
+
+ggboxplot(brain_tibble, x = "sex", y = "ki", 
+          color = "sex",
+          order = c("Male", "Female"),
+          ylab = "KI", xlab = "Sex")
+
+wilcox.test(m.ki.vals, f.ki.vals, paired=F, alternative='two.sided',exact = F,correct = T)
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Sex and GTV? (NOT SIGNIFICANT)
+#mann whitney U test
+m.gtv.vals <- brain_tibble$gtv[brain_tibble$sex=="Male"]
+f.gtv.vals <- brain_tibble$gtv[brain_tibble$sex=="Female"]
+
+hist(m.gtv.vals, prob=T, main = 'Histogram of GTV values of Males', xlim=c(0,35), ylim=c(0,0.1), breaks=5)
+hist(f.gtv.vals, prob=T, main = 'Histogram of GTV values of Females', xlim=c(0,35), ylim=c(0,0.1))
+
+ggboxplot(brain_tibble, x = "sex", y = "gtv", 
+          color = "sex",
+          order = c("Male", "Female"),
+          ylab = "KI", xlab = "Sex")
+
+wilcox.test(m.gtv.vals, f.gtv.vals, paired=F, alternative='two.sided',exact = F,correct = T)
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Sex and Stereo? (NOT SIGNIFICANT)
+num.m.srs <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$stereo=="SRS",])
+num.f.srs <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$stereo=="SRS",])
+num.m.srt <- nrow(brain_tibble[brain_tibble$sex=="Male" & brain_tibble$stereo=="SRT",])
+num.f.srt <- nrow(brain_tibble[brain_tibble$sex=="Female" & brain_tibble$stereo=="SRT",])
+
+sex.stereo.contigencytbl <- matrix(c(num.m.srs, num.f.srs,
+                                num.m.srt, num.f.srt),ncol=2,nrow=2,byrow = T)
+
+row.names(sex.stereo.contigencytbl) <- c("SRS","SRT")
+colnames(sex.stereo.contigencytbl) <- c("Male", "Female")
+sex.stereo.contigencytbl
+
+#perform chi squared test, with Yates continuity correction
+chi_test <- chisq.test(sex.stereo.contigencytbl, correct = T)
+chi_test
+chi_test$observed
+chi_test$expected
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+
+
+##Is there an association between Loc and KI? (NOT SIGNIFICANT)
+#mann whitney U test
+supra.ki.vals <- brain_tibble$ki[brain_tibble$loc=="Supratentorial"]
+infra.ki.vals <- brain_tibble$ki[brain_tibble$loc=="Infratentorial"]
+
+hist(supra.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Patients with Supratentorial Tumors', xlim=c(0,100), ylim=c(0,0.1), breaks=5)
+hist(infra.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Patients with Infratentorial Tumors', xlim=c(0,100), ylim=c(0,0.1))
+
+ggboxplot(brain_tibble, x = "loc", y = "ki", 
+          color = "loc",
+          order = c("Supratentorial", "Infratentorial"),
+          ylab = "KI", xlab = "Tumor Location")
+
+wilcox.test(supra.ki.vals, infra.ki.vals, paired=F, alternative='two.sided',exact = F,correct = T)
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Loc and GTV? (NOT SIGNIFICANT)
+#mann whitney U test
+supra.gtv.vals <- brain_tibble$gtv[brain_tibble$loc=="Supratentorial"]
+infra.gtv.vals <- brain_tibble$gtv[brain_tibble$loc=="Infratentorial"]
+
+hist(supra.gtv.vals, prob=T, main = 'Histogram of GTV values of Patients with Supratentorial Tumors', xlim=c(0,35), ylim=c(0,0.1), breaks=5)
+hist(infra.gtv.vals, prob=T, main = 'Histogram of GTV values of Patients with Infratentorial Tumors', xlim=c(0,35), ylim=c(0,0.1))
+
+ggboxplot(brain_tibble, x = "loc", y = "gtv", 
+          color = "loc",
+          order = c("Supratentorial", "Infratentorial"),
+          ylab = "GTV", xlab = "Tumor Location")
+
+wilcox.test(supra.gtv.vals, infra.gtv.vals, paired=F, alternative='two.sided',exact = F,correct = T)
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+##Is there an association between Loc and Stereo? (SIGNIFICANT)
+num.supra.srs <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$stereo=="SRS",])
+num.infra.srs <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$stereo=="SRS",])
+num.supra.srt <- nrow(brain_tibble[brain_tibble$loc=="Supratentorial" & brain_tibble$stereo=="SRT",])
+num.infra.srt <- nrow(brain_tibble[brain_tibble$loc=="Infratentorial" & brain_tibble$stereo=="SRT",])
+
+loc.stereo.contigencytbl <- matrix(c(num.supra.srs, num.infra.srs,
+                                num.supra.srt, num.infra.srt),ncol=2,nrow=2,byrow = T)
+
+row.names(loc.stereo.contigencytbl) <- c("SRS","SRT")
+colnames(loc.stereo.contigencytbl) <- c("Male", "Female")
+sex.stereo.contigencytbl
+
+#perform chi squared test
+chi_test <- chisq.test(loc.stereo.contigencytbl, correct = F)
+chi_test
+chi_test$observed
+chi_test$expected
+#perform fisher exact test
+fisher <- fisher.test(loc.stereo.contigencytbl)
+fisher
+#p val is less than 0.05, so we can conclude that there is a significant association
+
+#bar plot
+stereo.loc.obs.df <- data.frame(
+  stereo=c(rep(c("SRS", "SRT"), 4)),
+  patients=c(12,57,11,8,18.03,50.97,4.97,14.03),
+  loc=c(rep("Supratentorial", 2), rep("Infratentorial", 2), rep("Supratentorial",2), rep("Infratentorial", 2)),
+  type=c(rep("Observed", 4), rep("Expected", 4))
+)
+ggplot(stereo.loc.obs.df) +
+  geom_bar(aes(x = type, y = patients, fill = loc),
+           position = "stack",
+           stat = "identity") +
+  facet_grid(~ stereo, switch = "x") +
+  ggtitle("Comparison of Observed and Expected Values for Each Stereotactic Method") +
+  xlab("Stereotactic Method") +
+  ylab("Patients") +
+  labs(fill="Tumor Location") +
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(strip.placement = "outside",
+        strip.background = element_rect(fill = NA, color = "white"),
+        panel.spacing = unit(-.01,"cm"),
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5),
+        plot.title = element_text(hjust = 0.5))
+
+
+
+
+##Is there an association between KI and GTV? (SIGNIFICANT)
+ggboxplot(brain_tibble, x = "ki", y = "gtv", 
+          fill = "ki",
+          order = c("40", "60", "70", "80", "90", "100"),
+          ylab = "GTV", xlab = "Karnofsky Index") +
+  scale_fill_manual(values=c("white", "#6CE5E8", "#41B8D5", "#2D8BBA", "#2F5F98", "#31356E")) +
+  labs( fill = "Karnofsky Index Score") +
+  ggtitle("Gross Tumor Volume by Karnofsky Index Score") +
+  theme(
+    panel.background = element_rect(fill = "#F2F4F5"),
+    legend.background = element_rect(fill = "#F2F4F5"),
+    plot.background = element_rect(fill = "#F2F4F5"),
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    legend.title = element_text(hjust = 0.5)
+  )
+
+cor.test(brain_tibble$ki, brain_tibble$gtv, method='s', alternative = "less")
+cor.test(brain_tibble$ki, brain_tibble$gtv, method='k', alternative = "less")
+#significant negative correlation: as ki increases, gtv decreases
+
+
+
+
+##Is there an association between KI and Stereo? (NOT SIGNIFICANT)
+#mann whitney U test
+srs.ki.vals <- brain_tibble$ki[brain_tibble$stereo=="SRS"]
+srt.ki.vals <- brain_tibble$ki[brain_tibble$stereo=="SRT"]
+
+hist(srs.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Patients with SRS Treatment', xlim=c(0,100), ylim=c(0,0.1), breaks=5)
+hist(srt.ki.vals, prob=T, main = 'Histogram of Karnofsky Index values of Patients with SRT Treatment', xlim=c(0,100), ylim=c(0,0.1))
+
+ggboxplot(brain_tibble, x = "stereo", y = "ki", 
+          color = "stereo",
+          order = c("SRS", "SRT"),
+          ylab = "KI", xlab = "Stereo")
+
+wilcox.test(srs.ki.vals, srt.ki.vals, paired=F, alternative='two.sided',exact = F,correct = T)
+#p val is greater than 0.05, so we can conclude that there is not a significant association
+
+
+
+
+##Is there an association between GTV and Stereo? (SIGNIFICANT)
+#mann whitney U test
+srs.gtv.vals <- brain_tibble$gtv[brain_tibble$stereo=="SRS"]
+srt.gtv.vals <- brain_tibble$gtv[brain_tibble$stereo=="SRT"]
+
+hist(srs.gtv.vals, prob=T, main = 'Histogram of GTV values of Patients with SRS Treatment', xlim=c(0,35), ylim=c(0,0.2), breaks=5)
+hist(srt.gtv.vals, prob=T, main = 'Histogram of GTV values of Patients with SRT Treatment', xlim=c(0,35), ylim=c(0,0.2))
+
+ggboxplot(brain_tibble, x = "stereo", y = "gtv", 
+          fill = "stereo",
+          order = c("SRS", "SRT"),
+          ylab = "GTV", xlab = "Stereotactic Method") +
+  scale_fill_manual(values=c("#6CE5E8", "#31356E")) +
+  labs( fill = "Stereotactic Method") +
+  ggtitle("Gross Tumor Volume by Stereotactic Method") +
+  theme(
+    panel.background = element_rect(fill = "#F2F4F5"),
+    legend.background = element_rect(fill = "#F2F4F5"),
+    plot.background = element_rect(fill = "#F2F4F5"),
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    legend.title = element_text(hjust = 0.5)
+  )
+wilcox.test(srs.gtv.vals, srt.gtv.vals, paired=F, alternative='less',exact = F,correct = T)
+#p val is less than 0.05, so we can conclude that there is a significant association
+
+
+#Lollipop Survival
+
+BBrainCancer$status<- as.factor(BrainCancer$status)
+brain_lollipop<-data.frame(
+  Patients=rownames(BrainCancer),
+  Time=BrainCancer$time
+)
+
+brain_lollipop %>%
+  arrange(desc(Time)) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+  mutate(Patients=factor(Patients, levels=Patients)) %>%
+ggplot(aes(x=Patients, y=Time, color=BrainCancer$status)) +
+  geom_segment( aes(x=Patients, xend=Patients, y=0, yend=Time), color="#41B8D5") +
+  geom_point(size=3.5) +
+  geom_point(aes(color=BrainCancer$status))+
+  theme_light() +
+  #coord_flip() +
+  ggtitle("Time to Event for Each Patient") +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    legend.title = element_text(hjust = 0.5, size = 13),
+    legend.text = element_text(size = 13),
+    plot.background = element_rect(fill = "#F2F4F5"),
+    legend.background = element_rect(fill = "#F2F4F5"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "#F2F4F5"),
+    plot.title = element_text(hjust = 0.5, size = 18),
+    axis.title.x = element_text(size=13),
+    axis.title.y = element_text(size = 13)
+  )+
+  ylab("Time (in Months)")+
+  labs(
+    color="Status"
+  )+
+  scale_color_manual(labels = c("Censored", "Uncensored"), values = c("#6CE5E8", "#31356E"))
+
+
+SURVIVAL
+
+each line is a patient; the length is the time and the color of the circle is censored/uncensored
+
+
+
+
+
+
+
+#basic KM, with no consideration of factors
+brain_tibble<- na.omit(brain_tibble)
+fit_KM <- survfit(Surv(time, status) ~ 1, data = brain_tibble)
+fit_KM
+ggsurvfit(fit_KM, linewidth = 1) +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))
+
+#basic KM again, but with Greenwood formula for confidence intervals
+fit_KM_gr <- survfit(Surv(time, status)~1, data = brain_tibble, conf.type='plain')
+fit_KM_gr
+ggsurvfit(fit_KM_gr, linewidth = 1) +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))
+
+
+
+#Probabilities of death at different times
+#30 months
+tail(fit_KM$surv[fit_KM$time<=30],1)
+#60 months
+tail(fit_KM$surv[fit_KM$time<=60],1)
+#median survival time
+median_surv<-fit_KM$time[fit_KM$surv<=0.5][1]
+median_surv
+
+
+surv_prob_30 <- tail(fit_KM$surv[fit_KM$time <= 30], 1)
+surv_prob_60 <- tail(fit_KM$surv[fit_KM$time <= 60], 1)
+
+# Assuming you have calculated the median survival time
+median_surv <- fit_KM$time[fit_KM$surv <= 0.5][1]
+
+# Create a bar plot
+barplot(c(surv_prob_30, surv_prob_60),
+        names.arg = c("30 Months", "60 Months"),
+        ylim = c(0, 1), 
+        main = "Survival Probabilities at 30 Months and 60 Months",
+        xlab = "Time",
+        ylab = "Survival Probability",
+        col = c("lightblue", "steelblue"))  
+
+# Add median survival time as a reference line
+abline(h = 0.5, col = "red", lty = 2)
+text(1.5, 0.5, paste("Median Survival:", median_surv, "months"), pos = 4, col = "red")
+
+
+
+#Cumulative Incidence
+survfit2(Surv(time, status) ~ 1,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1,type = "risk") +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  labs(title = "Cumulative Incidence for Brain Cancer Survival",
+       x="Time (months)",
+       y="Probability of death")+
+  scale_x_continuous(breaks = seq(0,90,by=10))
+
+
+#Cumulative Hazard
+survfit2(Surv(time, status) ~ 1,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1,type = "cumhaz") +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  labs(title = "Cumululative Hazard for Brain Cancer Survival",
+       x="Time (months)",
+       y="Cumulative Hazard")+
+  scale_x_continuous(breaks = seq(0,90,by=10))
+
+
+#Log rank tests and Kaplan Meier Curves for Categorical Covariates
+
+#Stereo
+fit_KM_by_stereo <- survfit2(Surv(time, status) ~ stereo, data = brain_tibble)
+survfit2(Surv(time, status)~stereo,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  #add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Stereotactic Method",
+       x="Time (Months)",
+       color="Stereotactic Method")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+fit_log_rank_stereo <- survdiff(Surv(time, status) ~ stereo, data = brain_tibble)
+fit_log_rank_stereo
+
+
+
+#sex (not significant by itsself)
+fit_KM_by_sex <- survfit2(Surv(time, status) ~ sex, data = brain_tibble)
+survfit2(Surv(time, status)~sex,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25)
+fit_log_rank_sex <- survdiff(Surv(time, status) ~ sex, data = brain_tibble)
+fit_log_rank_sex
+
+
+#diagnosis
+ fit_KM_by_dia <- survfit2(Surv(time, status) ~ diagnosis, data = brain_tibble)
+survfit2(Surv(time, status)~diagnosis,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  #add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Diagnosis",
+       x="Time (Months)",
+       color="Diagnosis")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#41B8D5", "#2F5F98", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#41B8D5", "#2F5F98", "#31356E")) +
+  theme(text = element_text(size = 13),
+        plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+fit_log_rank_dia <- survdiff(Surv(time, status) ~ diagnosis, data = brain_tibble)
+fit_log_rank_dia
+
+
+
+#location
+fit_KM_by_loc <- survfit2(Surv(time, status) ~ loc, data = brain_tibble)
+survfit2(Surv(time, status)~loc,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval() + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25)
+fit_log_rank_loc <- survdiff(Surv(time, status) ~ loc, data = brain_tibble)
+fit_log_rank_loc
+
+
+
+#ki
+#finding the mean and distribution of ki in order to separate into categories
+mean(brain_tibble$ki)
+hist(brain_tibble$ki)
+ggplot(brain_tibble, aes(ki)) + geom_histogram(bins=20)
+
+#cutting into categories above and below 80
+brain_tibble$kicat <- cut(brain_tibble$ki, breaks=c(0, 79, Inf), labels=c("low ki", "high ki"))
+
+fit_KM_by_ki <- survfit2(Surv(time, status) ~ kicat, data = brain_tibble)
+survfit2(Surv(time, status)~kicat,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  #add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Karnofsky Index",
+       x="Time (Months)",
+       color="Karnofsky Index")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(labels = c("KI<80", "KI>=80"), values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+fit_log_rank_ki <- survdiff(Surv(time, status) ~ kicat, data = brain_tibble)
+fit_log_rank_ki
+
+
+
+#gtv
+#finding the mean and distribution of gtv in order to separate into categories
+mean(brain_tibble$gtv)
+hist(brain_tibble$gtv)
+ggplot(brain_tibble, aes(gtv)) + geom_histogram(bins=20)
+
+#cutting into categories above and below 80
+brain_tibble$gtvcat <- cut(brain_tibble$gtv, breaks=c(0, 15, 30, Inf), labels=c("small gtv", "medium gtv", "large gtv"))
+
+fit_KM_by_gtv <- survfit2(Surv(time, status) ~ gtvcat, data = brain_tibble)
+survfit2(Surv(time, status)~gtvcat,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  #add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Gross Tumor Volume",
+       x="Time (Months)",
+       color="Gross Tumor Volume (cm^3)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2.3, y=0.25) +  
+  scale_color_manual(labels = c("GTV<=15", "15<GTV<=30", "GTV>30"), values = c("#6CE5E8", "#41B8D5", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#41B8D5", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        #panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+fit_log_rank_gtv <- survdiff(Surv(time, status) ~ gtvcat, data = brain_tibble)
+fit_log_rank_gtv
+
+
+
+#Coxph Models
+#multivariate cox
+fit.cox <- coxph(Surv(time, status) ~ sex+diagnosis+loc+ki+gtv+stereo,
+                 data=brain_tibble)
+summary(fit.cox) #significant all together
+
+
+###Hazard Ratios Plot
+ggforest(fit.cox, data=as.data.frame(brain_tibble))
+
+
+###Goodness of Fit
+ggcoxdiagnostics(fit.cox, type = "martingale", linear.predictions = T)
+ggcoxdiagnostics(fit.cox, type = "deviance", linear.predictions = T)
+
+
+
+
+###Proportional Hazard Assumption: all the variables can be included
+diag.ph <- cox.zph(fit.cox)
+diag.ph
+ggcoxzph(diag.ph)
+
+
+
+##Univariate Cox Models
+#cox sex
+cox.sex <- coxph(Surv(time, status) ~ sex,
+                 data=brain_tibble)
+summary(cox.sex)
+#plot survival
+sex_df <- with(lung,
+               data.frame(sex = c("Male","Female") )
+)
+fit.sex <- survfit(cox.sex, newdata = sex_df)
+plot(fit.sex, conf.int=F,
+     col=c("dodgerblue2","darkmagenta"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("Sex = Male", "Sex = Female"),
+       lty=c(1,1), lwd=c(2,2), col=c("dodgerblue2","darkmagenta"))
+
+
+
+#cox diagnosis
+cox.dia <- coxph(Surv(time, status) ~ diagnosis,
+                 data=brain_tibble)
+summary(cox.dia) #significant
+#plot survival
+dia_df <- with(lung,
+               data.frame(diagnosis = c("Meningioma","HG glioma", "LG glioma", "Other") )
+)
+fit.dia <- survfit(cox.dia, newdata = dia_df)
+plot(fit.dia, conf.int=F,
+     col=c("red","blue", "green", "orange"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("Meningioma", "HG glioma", "LG glioma", "Other"),
+       lty=c(1,1,1,1), lwd=c(2,2,2,2), col=c("red", "blue", "green", "orange"))
+
+
+
+#cox loc
+cox.loc <- coxph(Surv(time, status) ~ loc,
+                 data=brain_tibble)
+summary(cox.loc) #not significant
+#plot survival
+loc_df <- with(lung,
+               data.frame(loc = c("Supratentorial","Infratentorial") )
+)
+fit.loc <- survfit(cox.loc, newdata = loc_df)
+plot(fit.loc, conf.int=F,
+     col=c("dodgerblue2","darkmagenta"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("Supratentorial", "Infratentorial"),
+       lty=c(1,1), lwd=c(2,2), col=c("dodgerblue2","darkmagenta"))
+
+
+
+#cox ki
+cox.ki <- coxph(Surv(time, status) ~ ki,
+                 data=brain_tibble)
+summary(cox.ki) #significant
+#plot survival
+ki_df <- with(lung,
+               data.frame(ki = c(60,90) )
+)
+fit.ki <- survfit(cox.ki, newdata = ki_df)
+plot(fit.ki, conf.int=F,
+     col=c("dodgerblue2","darkmagenta"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("KI = 60", "KI = 90"),
+       lty=c(1,1), lwd=c(2,2), col=c("dodgerblue2","darkmagenta"))
+
+
+
+#cox gtv
+cox.gtv <- coxph(Surv(time, status) ~ gtv,
+                 data=brain_tibble)
+summary(cox.gtv) #significant
+#plot survival
+gtv_df <- with(lung,
+               data.frame(gtv = c(2.5,12.12) ) #1st and 3rd quantile values
+)
+fit.gtv <- survfit(cox.gtv, newdata = gtv_df)
+plot(fit.gtv, conf.int=F,
+     col=c("dodgerblue2","darkmagenta"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("GTV = 2.5", "GTV = 12.12"),
+       lty=c(1,1), lwd=c(2,2), col=c("dodgerblue2","darkmagenta"))
+
+
+
+#cox stereo
+cox.stereo <- coxph(Surv(time, status) ~ stereo,
+                 data=brain_tibble)
+summary(cox.stereo) #significant
+#plot survival
+stereo_df <- with(lung,
+               data.frame(stereo = c("SRT","SRS") )
+)
+fit.stereo <- survfit(cox.stereo, newdata = stereo_df)
+plot(fit.stereo, conf.int=F,
+     col=c("dodgerblue2","darkmagenta"), lwd=2, lty=1,
+     xlab='Time [months]', ylab='Survival Probability',
+     main='Adjusted Survival Probability Plot')
+grid()
+legend('topright', c("SRT", "SRS"),
+       lty=c(1,1), lwd=c(2,2), col=c("dodgerblue2","darkmagenta"))
+
+
+
+###Proportional Hazards Assumption for Categorical Covariates
+ggsurvplot(fit_KM_by_sex,fun = "cloglog")
+ggsurvplot(fit_KM_by_dia,fun = "cloglog")
+ggsurvplot(fit_KM_by_loc,fun = "cloglog")
+ggsurvplot(fit_KM_by_stereo,fun = "cloglog")
+
+
