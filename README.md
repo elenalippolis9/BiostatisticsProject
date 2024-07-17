@@ -41,7 +41,7 @@ Study period: July 30, 2004 - May 5, 2012.
 * Is there a correlation between any of the factors (e.g., sex, diagnosis, tumor location, KI, GTV) and survival time?
 * What is the probability of a patient surviving a certain period of time?
 
-###Data analysis:
+### Data analysis:
 * Apply non-parametric methods (e.g., Mann-Whitney U test) to analyze survival data.
 * Examine variables and their correlation with survival independently and through regression analysis.
 * Conduct multiple hypothesis testing to explore associations between variables.
