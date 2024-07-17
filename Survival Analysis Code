@@ -1,0 +1,307 @@
+library(rgl)
+options(rgl.useNULL = TRUE)
+library(ISLR2)
+library(tibble)
+library(ggplot2)
+library(survival)
+library(tidyverse)
+library(survminer)
+library(ggpubr)
+library(ggsurvfit)
+library(RColorBrewer)
+library(gt)
+
+#clear out env
+rm(list=ls())
+graphics.off()
+
+#Open Brain Cancer Data
+data(BrainCancer)
+summary(BrainCancer)
+
+#make tibble and tibble without na
+brain_tibble<-as_tibble(BrainCancer)
+brain_tibble_nona <- na.omit(brain_tibble)
+
+#basic Kaplan-Meiyer
+#not taking into account any covariates
+fit_KM <- survfit(Surv(time, status) ~ 1, data = brain_tibble)
+fit_KM
+ggsurvfit(fit_KM, linewidth = 1, color = "#31356E") +
+  add_confidence_interval(fill = "#6CE5E8") + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+
+
+#survival probabilities at different times
+#30 months
+tail(fit_KM$surv[fit_KM$time<=30],1)
+#60 months
+tail(fit_KM$surv[fit_KM$time<=60],1)
+#median survival time
+fit_KM$time[fit_KM$surv<=0.5][1]
+
+
+#Cumulative Incidence Plot
+ggsurvfit(fit_KM, linewidth = 1, color = "#31356E", type = "risk") +
+  add_confidence_interval(fill = "#6CE5E8") + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+
+
+
+#Cumulative Hazard Plot
+ggsurvfit(fit_KM, linewidth = 1, color = "#31356E", type = "cumhaz") +
+  add_confidence_interval(fill = "#6CE5E8") + # add confidence interval
+  add_risktable() + # Add risk table
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Kaplan-Meier Curve for Brain Cancer Survival",
+       x="Time (Months)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+
+
+
+#Sex KM --NSIG
+survfit2(Surv(time, status)~sex,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Sex",
+       x="Time (Months)",
+       color="Sex")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ sex, data = brain_tibble)
+#PH assessment
+ggsurvplot(survfit2(Surv(time, status)~sex,data=brain_tibble),fun = "cloglog")
+
+
+#Diagnosis KM --SIG
+survfit2(Surv(time, status)~diagnosis,data=brain_tibble_nona) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Diagnosis",
+       x="Time (Months)",
+       color="Diagnosis")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#41B8D5", "#2F5F98", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#41B8D5", "#2F5F98", "#31356E")) +
+  theme(text = element_text(size = 13),
+        plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ diagnosis, data = brain_tibble_nona)
+#PH assessment
+ggsurvplot(survfit2(Surv(time, status)~diagnosis,data=brain_tibble_nona),fun = "cloglog")
+
+
+#Loc KM --NSIG
+survfit2(Surv(time, status)~loc,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Tumor Location",
+       x="Time (Months)",
+       color="Tumor Location")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ loc, data = brain_tibble)
+#PH assessment
+ggsurvplot(survfit2(Surv(time, status)~loc,data=brain_tibble),fun = "cloglog")
+
+
+#KI KM --SIG
+#finding the mean and distribution of ki in order to separate into categories
+mean(brain_tibble$ki)
+hist(brain_tibble$ki)
+ggplot(brain_tibble, aes(ki)) + geom_histogram(bins=20)
+#cutting into categories above and below 80
+brain_tibble$kicat <- cut(brain_tibble$ki, breaks=c(0, 79, Inf), labels=c("low ki", "high ki"))
+
+survfit2(Surv(time, status)~kicat,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Karnofsky Index",
+       x="Time (Months)",
+       color="Karnofsky Index")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(labels = c("KI<80", "KI>=80"), values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ kicat, data = brain_tibble)
+
+
+
+#GTV KM --SIG
+#finding the mean and distribution of gtv in order to separate into categories
+mean(brain_tibble$gtv)
+hist(brain_tibble$gtv)
+ggplot(brain_tibble, aes(gtv)) + geom_histogram(bins=20)
+#cutting into categories
+brain_tibble$gtvcat <- cut(brain_tibble$gtv, breaks=c(0, 15, 30, Inf), labels=c("small gtv", "medium gtv", "large gtv"))
+
+survfit2(Surv(time, status)~gtvcat,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Gross Tumor Volume",
+       x="Time (Months)",
+       color="Gross Tumor Volume (cm^3)")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2.3, y=0.25) +  
+  scale_color_manual(labels = c("GTV<=15", "15<GTV<=30", "GTV>30"), values = c("#6CE5E8", "#41B8D5", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#41B8D5", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ gtvcat, data = brain_tibble)
+
+
+
+#Stereo KM --SIG
+survfit2(Surv(time, status)~stereo,data=brain_tibble) |>
+  ggsurvfit(linewidth = 1) +
+  add_confidence_interval("lines") + # add confidence interval
+  add_quantile(y_value = 0.5, color = "gray50", linewidth = 0.75)+  # Specify median survival
+  labs(title = "Survival Probability by Stereotactic Method",
+       x="Time (Months)",
+       color="Stereotactic Method")+
+  scale_x_continuous(breaks = seq(0,90,by=10))+
+  add_pvalue("annotation", x=2, y=0.25) +  
+  scale_color_manual(values = c("#6CE5E8", "#31356E"))+
+  scale_fill_manual(values = c("#6CE5E8", "#31356E")) +
+  theme(plot.title = element_text(hjust = 0.5, size = 18), 
+        plot.background = element_rect(fill = "#F2F4F5"),
+        panel.border = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "#F2F4F5"),
+        legend.background = element_rect(fill = "#F2F4F5"),
+        legend.title = element_text(hjust = 0.5, size = 13),
+        legend.position = "right",
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 12),
+        legend.text = element_text(size = 13))
+#log-rank test
+survdiff(Surv(time, status) ~ stereo, data = brain_tibble)
+#PH assessment
+ggsurvplot(survfit2(Surv(time, status)~stereo,data=brain_tibble),fun = "cloglog")
+
+
+#Multivariate Cox
+fit.cox <- coxph(Surv(time, status) ~ sex+diagnosis+loc+ki+gtv+stereo,
+                 data=brain_tibble)
+summary(fit.cox) #significant all together
+#Hazard Ratios
+ggforest(fit.cox, data=as.data.frame(brain_tibble))
+#goodness of fit
+ggcoxdiagnostics(fit.cox, type = "martingale", linear.predictions = T)
+ggcoxdiagnostics(fit.cox, type = "deviance", linear.predictions = T)
+#PH Assumption
+diag.ph <- cox.zph(fit.cox)
+diag.ph
+ggcoxzph(diag.ph)
+
+#TODO: 
+#Try a cox model with only diagnosis and ki, since they were the only significant ones
+#See how the results change if we combine LG gliomas and other into one group
+
